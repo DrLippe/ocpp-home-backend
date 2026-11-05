@@ -1,0 +1,7 @@
+{
+  "name": "elli-standalone-ocpp",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": { "start": "node index.js" },
+  "dependencies": { "ws": "^8.18.3" }
+}
