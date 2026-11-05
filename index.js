@@ -39,6 +39,7 @@ let connectedTestStart = null;
 let connectedCertificateCheck = null;
 let connectedCertificateInstall = null;
 let connectedControls = null;
+let connectedVehicleProbe = null;
 
 console.log(`🚀 Lokaler OCPP-Server läuft auf ws://localhost:${PORT}`);
 console.log(`📝 Vollständiges OCPP-Protokoll: ${logfile}`);
@@ -48,6 +49,7 @@ console.log('🔎 Diagnose jederzeit starten: diag eingeben und Enter drücken.'
 console.log(`⚡ Manueller Teststart: ${ENABLE_TEST_START ? 'start eingeben und Enter drücken' : 'deaktiviert (ENABLE_TEST_START=true)'}`);
 console.log('🔏 Zertifikatsübersicht: certs; optionale Installation: installcert (nur mit CERT_PEM_FILE).');
 console.log(`⏯️ Laden: ${ENABLE_CHARGING_CONTROL ? 'pause / resume / stop verfügbar' : 'deaktiviert (ENABLE_CHARGING_CONTROL=true)'}`);
+console.log('🚗 Experimentelle Elli-Fahrzeugabfrage: vehicle');
 process.stdin.setEncoding('utf8');
 process.stdin.on('data', input => {
     for (const command of input.split(/\r?\n/).map(x => x.trim().toLowerCase())) {
@@ -72,6 +74,10 @@ process.stdin.on('data', input => {
             if (!ENABLE_CHARGING_CONTROL) console.warn('🔒 Ladesteuerung deaktiviert.');
             else if (!connectedControls) console.warn('⚠️ Keine Wallbox verbunden.');
             else void connectedControls(command);
+        }
+        if (command === 'vehicle') {
+            if (!connectedVehicleProbe) console.warn('⚠️ Keine Wallbox verbunden.');
+            else void connectedVehicleProbe();
         }
     }
 });
@@ -100,6 +106,7 @@ wss.on('connection', (ws, req) => {
     let connectorStatus = null;
     let controlBusy = false;
     let pausedByServer = false;
+    let vehicleProbeRunning = false;
     let vehicleDetails = null;
     let chargingNeeds = null;
     let testTokenValidUntil = 0;
@@ -234,6 +241,23 @@ wss.on('connection', (ws, req) => {
         } catch (e) { console.warn(`⚠️ ${action} fehlgeschlagen:`, e.message); }
         finally { controlBusy = false; }
     }
+    async function probeVehicleDetails() {
+        if (ws.readyState !== WebSocket.OPEN) return;
+        if (vehicleProbeRunning) return console.warn('⚠️ Fahrzeugabfrage läuft bereits.');
+        vehicleProbeRunning = true;
+        console.log('🚗 Experimentelle Fahrzeugabfrage: keine OCPP-standardisierte FIN-Abfrage verfügbar.');
+        // These are read-intent guesses for undocumented Elli vendor extensions;
+        // no automatic start or configuration changes are issued.
+        for (const messageId of ['EVDetailsRequest', 'GetEVDetails']) {
+            try {
+                const result = await call('DataTransfer', {
+                    vendorId: 'de.elli', messageId, data: '{}'
+                });
+                console.log(`🚗 DataTransfer ${messageId}:`, JSON.stringify(result));
+            } catch (e) { console.warn(`⚠️ DataTransfer ${messageId}:`, e.message); }
+        }
+        vehicleProbeRunning = false;
+    }
     async function testStart() {
         if (!ENABLE_TEST_START || ws.readyState !== WebSocket.OPEN) return;
         if (testStartRunning) return console.warn('⚠️ Teststart läuft bereits.');
@@ -261,6 +285,7 @@ wss.on('connection', (ws, req) => {
     connectedCertificateCheck = inspectInstalledCertificates;
     connectedCertificateInstall = installCertificate;
     connectedControls = controlCharging;
+    connectedVehicleProbe = probeVehicleDetails;
     function tokenAllowed(token) {
         return typeof token === 'string' &&
             (ALLOWED_RFID.has(token) || (ENABLE_TEST_START && token === TEST_TOKEN && Date.now() < testTokenValidUntil));
@@ -396,6 +421,7 @@ wss.on('connection', (ws, req) => {
         if (connectedCertificateCheck === inspectInstalledCertificates) connectedCertificateCheck = null;
         if (connectedCertificateInstall === installCertificate) connectedCertificateInstall = null;
         if (connectedControls === controlCharging) connectedControls = null;
+        if (connectedVehicleProbe === probeVehicleDetails) connectedVehicleProbe = null;
         logFrame('disconnect', JSON.stringify({chargerId: id}));
         for (const request of pending.values()) { clearTimeout(request.timeout); request.reject(new Error('Disconnected')); }
         pending.clear(); console.log('❌ Verbindung zur Wallbox getrennt.');
