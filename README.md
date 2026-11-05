@@ -55,6 +55,10 @@ node index.js
 
 Die beobachteten proprietären Elli-`DataTransfer`-Nachrichten `EVDetailsUpdate`, `ChargeParameterUpdate` und `PowerStatusUpdate` werden jetzt mit `status: Accepted` bestätigt. Unbekannte Nachrichten erhalten `UnknownMessageId` bzw. `UnknownVendorId`. `EVDetailsUpdate` enthält Marke, Modell und PCID (in der Konsole gekürzt, vollständig im lokalen Rohprotokoll). Die PCID wurde **erst nach einem Remote-Start** beobachtet und gilt ohne zusätzliche Prüfung nicht als fälschungssicherer Beweis der Fahrzeugidentität. Daraus erfolgt ausdrücklich **noch keine automatische Autorisierung**.
 
+### Experimenteller Fahrzeugabfrage-Test
+
+Wenn die Wallbox verbunden ist, kann im Terminal `vehicle` eingegeben werden. Der Server sendet dann nacheinander zwei **nicht dokumentierte, rein experimentelle** Elli-`DataTransfer`-Anfragen (`EVDetailsRequest` und `GetEVDetails`, jeweils `vendorId: de.elli`) und zeichnet sämtliche Antworten auf. **Es ist nicht bekannt, ob diese Nachrichtennamen von der Elli unterstützt werden.** `UnknownMessageId`, `Rejected` oder Time-outs sind mögliche und aussagekräftige Ergebnisse. Dieser Befehl startet keinen Ladevorgang und fragt **nicht** über einen offiziellen OCPP-Standardmechanismus eine FIN ab. Vor produktivem Einsatz ist zu prüfen, ob irgendeine erfolgreiche Antwort tatsächlich vor Autorisierung verfügbar ist.
+
 `NotifyEVChargingNeeds` wird mit dem nach OCPP 2.0.1 erforderlichen `status: Accepted` bestätigt und die Ladeanforderung wird lesbar protokolliert. Die gemeldeten Werte für Energiebedarf, Strom, Spannung und Abfahrtszeit werden **nicht** als verbindlicher Ladeplan interpretiert. Insbesondere erzeugt der Server keine `SetChargingProfile`-Nachrichten und verändert keine Fahrzeug- oder Stromanbieter-Ladeplanung. Der Stromanbieter kann weiterhin die zeitliche Ladesteuerung im Auto übernehmen, soweit dessen Dienst durch den Backendwechsel nicht beeinträchtigt wird.
 
 ## ISO 15118 und Zertifikatsdiagnose
